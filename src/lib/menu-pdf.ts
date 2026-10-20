@@ -13,7 +13,7 @@ const GREEN_SOFT: [number, number, number] = [232, 245, 233]; // #E8F5E9
 const CREAM: [number, number, number] = [245, 240, 232]; // #F5F0E8
 const MUTED: [number, number, number] = [90, 110, 95];
 
-type Plan = ReturnType<typeof structuredClone<PlanForPdf>>;
+type Plan = PlanForPdf;
 
 interface DocCtx {
   doc: jsPDF;
