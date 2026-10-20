@@ -1,4 +1,5 @@
-- [ ] Configurar perfil automático e acesso privado aos cardápios no Supabase conectado.
-- [ ] Adicionar cadastro, login, recuperação de senha e saída.
-- [ ] Salvar cardápios automaticamente e abrir histórico por usuário.
-- [ ] Testar validação, acesso e fluxo disponível.
+- [x] Configurar perfil automático e acesso privado aos cardápios no Supabase conectado.
+- [x] Adicionar cadastro, login, recuperação de senha e saída.
+- [x] Salvar cardápios automaticamente e abrir histórico por usuário.
+- [x] Testar validação, acesso, bloqueio sem login e formulários no navegador (9 testes).
+- [ ] Validar cadastro/login e salvar→reabrir com conta real: sessão de teste não disponível no Supabase externo; configurações hospedadas de autenticação não verificadas.
