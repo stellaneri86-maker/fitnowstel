@@ -1,5 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { UserRound, LogOut, BookOpen, LoaderCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AuthDialog } from "@/components/auth-dialog";
+import { SavedMenus } from "@/components/saved-menus";
+import { useAccount } from "@/components/account-provider";
+import { supabase } from "@/integrations/supabase/client";
+import { createMenu, getAccount } from "@/lib/menus.functions";
 import { Apple, PiggyBank, Timer, Dumbbell, Check, Copy, RotateCcw, Clock, ArrowRight, ArrowLeft, Sparkles, Leaf, X, ChefHat, ShoppingBasket } from "lucide-react";
 import { generatePlan, MEAL_CATEGORIES, type Goal, type Meal, type MealCategory, type Restriction } from "@/lib/menu-data";
 import heroImg from "@/assets/hero.jpg";
@@ -10,7 +21,7 @@ export const Route = createFileRoute("/")({
       { title: "FitNow — Cardápio semanal inteligente e lista de compras express" },
       { name: "description", content: "Escolha seu objetivo, selecione as refeições e receba um cardápio inteligente com receita passo a passo e lista de compras separada por setor." },
       { property: "og:title", content: "FitNow — Planeje sua semana e faça mercado em minutos" },
-      { property: "og:description", content: "Cardápio inteligente com receitas passo a passo e lista de compras separada por setor. Grátis e sem cadastro." },
+      { property: "og:description", content: "Cardápio inteligente com receitas passo a passo, lista de compras e histórico salvo na sua conta." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -33,6 +44,16 @@ const RESTRICTIONS: { id: Restriction | "nenhuma"; label: string }[] = [
 ];
 
 function Index() {
+  const { user, loading: accountLoading } = useAccount();
+  const queryClient = useQueryClient();
+  const saveMenu = useServerFn(createMenu);
+  const fetchAccount = useServerFn(getAccount);
+  const profile = useQuery({ queryKey: ["profile", user?.id], queryFn: () => fetchAccount(), enabled: !!user });
+  const [authOpen, setAuthOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [view, setView] = useState<"planner" | "history">("planner");
+  const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [step, setStep] = useState(1);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [cats, setCats] = useState<MealCategory[]>([...MEAL_CATEGORIES]);
@@ -41,6 +62,10 @@ function Index() {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
+
+  useEffect(() => {
+    if (!user) { setPlan(null); setStep((current) => current === 3 ? 2 : current); setView("planner"); setOpenMeal(null); setProfileOpen(false); setChecked(new Set()); }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!openMeal) return;
@@ -56,13 +81,34 @@ function Index() {
   };
   const toggleCat = (c: MealCategory) => setCats((list) => (list.includes(c) ? list.filter((x) => x !== c) : [...list, c]));
   const allSelected = cats.length === MEAL_CATEGORIES.length;
-  const generate = () => { if (!goal || !cats.length) return; setPlan(generatePlan(goal, restr, cats)); setChecked(new Set()); setStep(3); };
+  const generate = async () => {
+    if (!goal || !cats.length || saving || accountLoading) return;
+    if (!user) { setAuthOpen(true); return; }
+    setSaving(true);
+    try {
+      const result = await saveMenu({ data: { goal, restrictions: restr, categories: cats } });
+      setPlan(result.plan); setChecked(new Set()); setStep(3);
+      if (result.saved) { toast.success("Cardápio salvo na sua conta."); void queryClient.invalidateQueries({ queryKey: ["menus", user.id] }); }
+    } catch { toast.error("Não foi possível gerar e salvar. Confira sua conexão e tente novamente."); }
+    finally { setSaving(false); }
+  };
+  const logout = async () => {
+    setSigningOut(true);
+    try {
+      await queryClient.cancelQueries(); queryClient.clear();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      reset(); setView("planner"); setProfileOpen(false);
+    } catch { toast.error("Não foi possível sair. Tente novamente."); }
+    finally { setSigningOut(false); }
+  };
   const reset = () => { setStep(1); setGoal(null); setCats([...MEAL_CATEGORIES]); setRestr([]); setPlan(null); setOpenMeal(null); };
   const copy = async () => {
     if (!plan) return;
     const text = plan.list.map((s) => `${s.emoji} ${s.label}\n${s.items.map((i) => `- ${i}`).join("\n")}`).join("\n\n");
-    await navigator.clipboard.writeText(`Lista de Compras — FitNow\n\n${text}`);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
+    try { await navigator.clipboard.writeText(`Lista de Compras — FitNow\n\n${text}`);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    } catch { toast.error("Não foi possível copiar a lista neste navegador."); }
   };
   const toggleItem = (i: string) => setChecked((s) => { const n = new Set(s); if (n.has(i)) { n.delete(i); } else { n.add(i); } return n; });
 
@@ -75,9 +121,12 @@ function Index() {
         <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-6 font-display text-lg font-semibold text-on-dark">
           <span className="glass grid size-9 place-items-center rounded-xl text-primary-foreground"><Leaf className="size-5" /></span>
           FitNow
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2 font-sans text-sm">
+            {user ? <><Button variant="secondary" onClick={() => { setView("history"); document.getElementById("app")?.scrollIntoView({ behavior: "smooth" }); }}><BookOpen /><span className="hidden sm:inline">Meus Cardápios</span></Button><Button variant="secondary" aria-label="Meu perfil" onClick={() => setProfileOpen(true)}><UserRound /><span className="hidden sm:inline max-w-32 truncate">{profile.data?.full_name || "Perfil"}</span></Button><Button variant="secondary" onClick={logout} disabled={signingOut || saving}><LogOut />Sair</Button></> : <Button variant="secondary" disabled={accountLoading} onClick={() => setAuthOpen(true)}><UserRound />{accountLoading ? "Aguarde…" : "Entrar / Cadastrar"}</Button>}
+          </div>
         </header>
         <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-5 pb-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <span className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-on-dark"><Sparkles className="size-4" /> Grátis, sem cadastro</span>
+          <span className="glass inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-foreground"><Sparkles className="size-4" /> Planejamento gratuito</span>
           <h1 className="mt-6 font-display text-4xl font-semibold leading-[1.05] tracking-tight text-on-dark md:text-6xl">Planeje sua semana e faça mercado em minutos com o FitNow.</h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-on-dark/85">Escolha seu objetivo, selecione as refeições desejadas, defina suas preferências e receba um cardápio inteligente com receita passo a passo e lista de compras separada por setor.</p>
           <button onClick={() => document.getElementById("app")?.scrollIntoView({ behavior: "smooth" })} className="btn-primary mt-10 px-8 py-4 text-lg">Criar Cardápio Grátis <ArrowRight className="size-5" /></button>
@@ -87,6 +136,11 @@ function Index() {
       {/* WIZARD */}
       <section id="app" className="bg-cream scroll-mt-0">
         <div className="mx-auto max-w-6xl px-4 py-16 md:px-5">
+          <div className="mb-8 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Cardápios">
+            <Button role="tab" aria-selected={view === "planner"} variant={view === "planner" ? "default" : "outline"} disabled={saving} onClick={() => setView("planner")}><ChefHat />Criar cardápio</Button>
+            <Button role="tab" aria-selected={view === "history"} variant={view === "history" ? "default" : "outline"} disabled={saving || accountLoading} onClick={() => user ? setView("history") : setAuthOpen(true)}><BookOpen />Meus Cardápios Salvos</Button>
+          </div>
+          {view === "history" && user ? <SavedMenus key={user.id} userId={user.id} onSelect={(savedPlan, savedGoal, restrictions, categories) => { setPlan(savedPlan); setGoal(savedGoal); setRestr(restrictions); setCats(categories); setChecked(new Set()); setStep(3); setView("planner"); }} /> : <>
           <div className="mb-8 flex items-center justify-center gap-2 md:gap-4">
             {["Objetivo", "Refeições & Preferências", "Resultado"].map((label, i) => (
               <div key={label} className="flex items-center gap-2 md:gap-4">
@@ -147,8 +201,8 @@ function Index() {
                 </div>
 
                 <div className="mt-10 flex flex-col-reverse justify-between gap-3 sm:flex-row">
-                  <button onClick={() => setStep(1)} className="btn-ghost"><ArrowLeft className="size-4" /> Voltar</button>
-                  <button onClick={generate} disabled={!cats.length} className="btn-primary"><Sparkles className="size-4" /> Gerar Meu Cardápio Express</button>
+                  <Button variant="ghost" onClick={() => setStep(1)} disabled={saving} className="btn-ghost h-auto"><ArrowLeft className="size-4" /> Voltar</Button>
+                  <Button onClick={generate} disabled={!cats.length || saving || accountLoading} className="btn-primary h-auto whitespace-normal">{saving ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{saving ? "Gerando e salvando…" : "Gerar Meu Cardápio Express"}</Button>
                 </div>
               </div>
             )}
@@ -213,10 +267,13 @@ function Index() {
               </div>
             )}
           </div>
+          </>}
         </div>
       </section>
 
       <footer className="bg-cream py-10 text-center text-sm text-muted-foreground">FitNow · Planeje melhor, compre mais rápido.</footer>
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
+      <Dialog open={profileOpen && !!user} onOpenChange={setProfileOpen}><DialogContent className="w-[calc(100%-2rem)] rounded-lg bg-cream"><DialogTitle className="font-display text-2xl">Meu perfil</DialogTitle><DialogDescription>Sua conta FitNow</DialogDescription>{profile.isPending ? <p>Carregando…</p> : profile.isError ? <p role="alert">Não foi possível carregar seu perfil.</p> : <dl className="grid gap-4"><div><dt className="text-sm text-muted-foreground">Nome</dt><dd className="break-words font-semibold">{profile.data?.full_name || "Não informado"}</dd></div><div><dt className="text-sm text-muted-foreground">E-mail</dt><dd className="break-all">{profile.data?.email || user?.email}</dd></div></dl>}<Button variant="outline" disabled={signingOut || saving} onClick={logout}><LogOut />Sair da conta</Button></DialogContent></Dialog>
 
       {/* MODAL DA RECEITA */}
       {openMeal && (
