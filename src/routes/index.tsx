@@ -3,14 +3,15 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { UserRound, LogOut, BookOpen, LoaderCircle } from "lucide-react";
+import { UserRound, LogOut, BookOpen, LoaderCircle, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AuthDialog } from "@/components/auth-dialog";
 import { SavedMenus } from "@/components/saved-menus";
 import { useAccount } from "@/components/account-provider";
 import { supabase } from "@/integrations/supabase/client";
-import { createMenu, getAccount } from "@/lib/menus.functions";
+import { createMenu, getAccount, getDishImage } from "@/lib/menus.functions";
+import { downloadListPdf, downloadRecipesPdf } from "@/lib/menu-pdf";
 import { Apple, PiggyBank, Timer, Dumbbell, Check, Copy, RotateCcw, Clock, ArrowRight, ArrowLeft, Sparkles, Leaf, X, ChefHat, ShoppingBasket } from "lucide-react";
 import { generatePlan, MEAL_CATEGORIES, type Goal, type Meal, type MealCategory, type Restriction } from "@/lib/menu-data";
 import heroImg from "@/assets/hero.jpg";
@@ -62,6 +63,8 @@ function Index() {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
+  const [dishImage, setDishImage] = useState<string | null>(null);
+  const fetchDishImage = useServerFn(getDishImage);
 
   useEffect(() => {
     if (!user) { setPlan(null); setStep((current) => current === 3 ? 2 : current); setView("planner"); setOpenMeal(null); setProfileOpen(false); setChecked(new Set()); }
@@ -74,6 +77,16 @@ function Index() {
     document.body.style.overflow = "hidden";
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = ""; };
   }, [openMeal]);
+
+  useEffect(() => {
+    setDishImage(null);
+    if (!openMeal) return;
+    let cancelled = false;
+    fetchDishImage({ data: { dish: openMeal.name } })
+      .then((r) => { if (!cancelled && r.url) setDishImage(r.url); })
+      .catch(() => { /* mantém o modal sem imagem de fundo */ });
+    return () => { cancelled = true; };
+  }, [openMeal?.name]);
 
   const toggleRestr = (id: Restriction | "nenhuma") => {
     if (id === "nenhuma") return setRestr([]);
@@ -111,6 +124,7 @@ function Index() {
     } catch { toast.error("Não foi possível copiar a lista neste navegador."); }
   };
   const toggleItem = (i: string) => setChecked((s) => { const n = new Set(s); if (n.has(i)) { n.delete(i); } else { n.add(i); } return n; });
+  const pdfSubtitle = `${GOALS.find((g) => g.id === goal)?.title ?? ""}${restr.length ? " · " + restr.map((r) => RESTRICTIONS.find((x) => x.id === r)?.label).join(", ") : ""}`;
 
   return (
     <div className="min-h-screen">
