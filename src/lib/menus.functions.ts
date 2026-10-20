@@ -21,6 +21,37 @@ export const createMenu = createServerFn({ method: "POST" })
     return { plan, saved: true };
   });
 
+export const getDishImage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ dish: z.string().min(1).max(120) }).parse(input))
+  .handler(async ({ data }) => {
+    const query = `${data.dish} food`;
+    const unsplashKey = process.env["UNSPLASH_ACCESS_KEY"];
+    if (unsplashKey) {
+      try {
+        const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape&content_filter=high`, {
+          headers: { Authorization: `Client-ID ${unsplashKey}`, "Accept-Version": "v1" },
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { results?: { urls?: { regular?: string } }[] };
+          const url = json.results?.[0]?.urls?.regular;
+          if (url) return { url, source: "unsplash" as const };
+        }
+      } catch { /* segue para a fonte alternativa */ }
+    }
+    try {
+      const res = await fetch(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=5&license_type=all&filter_dead=false`, {
+        headers: { "User-Agent": "FitNow/1.0" },
+      });
+      if (!res.ok) return { url: null, source: null };
+      const json = (await res.json()) as { results?: { url?: string }[] };
+      const url = json.results?.[0]?.url ?? null;
+      return { url, source: url ? ("openverse" as const) : null };
+    } catch {
+      return { url: null, source: null };
+    }
+  });
+
 export const getAccount = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
