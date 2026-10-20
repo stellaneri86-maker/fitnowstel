@@ -1,0 +1,4 @@
+- [ ] Configurar perfil automático e acesso privado aos cardápios no Supabase conectado.
+- [ ] Adicionar cadastro, login, recuperação de senha e saída.
+- [ ] Salvar cardápios automaticamente e abrir histórico por usuário.
+- [ ] Testar validação, acesso e fluxo disponível.
