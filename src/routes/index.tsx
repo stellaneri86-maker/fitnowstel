@@ -11,7 +11,7 @@ import { SavedMenus } from "@/components/saved-menus";
 import { useAccount } from "@/components/account-provider";
 import { supabase } from "@/integrations/supabase/client";
 import { createMenu, getAccount, getDishImage } from "@/lib/menus.functions";
-import { downloadListPdf, downloadRecipesPdf } from "@/lib/menu-pdf";
+import { downloadListPdf } from "@/lib/menu-pdf";
 import { Apple, PiggyBank, Timer, Dumbbell, Check, Copy, RotateCcw, Clock, ArrowRight, ArrowLeft, Sparkles, Leaf, X, ChefHat, ShoppingBasket } from "lucide-react";
 import { generatePlan, MEAL_CATEGORIES, type Goal, type Meal, type MealCategory, type Restriction } from "@/lib/menu-data";
 import heroImg from "@/assets/hero.jpg";
@@ -275,6 +275,16 @@ function Index() {
                           </div>
                         ))}
                       </div>
+                      <Button
+                        className="mt-4 h-auto w-full whitespace-normal"
+                        disabled={!plan.list.length}
+                        onClick={() => {
+                          try { downloadListPdf(plan, pdfSubtitle); }
+                          catch { toast.error("Não foi possível baixar o PDF. Tente novamente."); }
+                        }}
+                      >
+                        <FileDown className="size-4" /> Baixar Lista de Compras em PDF
+                      </Button>
                     </div>
                   </div>
                 )}
