@@ -4,4 +4,4 @@
 - [x] Testar validação, acesso, bloqueio sem login e formulários no navegador (9 testes).
 - [ ] Validar cadastro/login e salvar→reabrir com conta real: sessão de teste não disponível no Supabase externo; configurações hospedadas de autenticação não verificadas.
 - [x] Adicionar interface isolada de contato demonstrativo, treino em casa e espaços para futuras parcerias.
-- [ ] Verificar as novas interações e apresentação no computador e celular, sem alterar o fluxo existente.
+- [x] Verificar as novas interações e apresentação no computador e celular, sem alterar o fluxo existente (10 testes passaram; contato, três focos de treino e bloqueio de geração sem login conferidos).

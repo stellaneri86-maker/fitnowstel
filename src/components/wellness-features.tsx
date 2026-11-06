@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Activity, ArrowRight, Check, Clock, Copy, Dumbbell, HeartHandshake, Leaf, MessageCircle, MoveUpRight, Send, ShieldCheck, StretchHorizontal } from "lucide-react";
+import { Activity, ArrowRight, Check, Clock, Copy, Dumbbell, HeartHandshake, Leaf, MessageCircle, MoveUpRight, ShieldCheck, StretchHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
