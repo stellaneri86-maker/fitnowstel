@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AuthDialog } from "@/components/auth-dialog";
 import { SavedMenus } from "@/components/saved-menus";
+import { WellnessFeatures } from "@/components/wellness-features";
 import { useAccount } from "@/components/account-provider";
 import { supabase } from "@/integrations/supabase/client";
 import { createMenu, getAccount, getDishImage } from "@/lib/menus.functions";
@@ -136,6 +137,7 @@ function Index() {
           <span className="glass grid size-9 place-items-center rounded-xl text-primary-foreground"><Leaf className="size-5" /></span>
           FitNow
           <div className="ml-auto flex flex-wrap items-center justify-end gap-2 font-sans text-sm">
+            <Button asChild variant="secondary" className="hidden md:inline-flex"><a href="#bem-estar"><Dumbbell />Treino & Bem-estar</a></Button>
             {user ? <><Button variant="secondary" onClick={() => { setView("history"); document.getElementById("app")?.scrollIntoView({ behavior: "smooth" }); }}><BookOpen /><span className="hidden sm:inline">Meus Cardápios</span></Button><Button variant="secondary" aria-label="Meu perfil" onClick={() => setProfileOpen(true)}><UserRound /><span className="hidden sm:inline max-w-32 truncate">{profile.data?.full_name || "Perfil"}</span></Button><Button variant="secondary" onClick={logout} disabled={signingOut || saving}><LogOut />Sair</Button></> : <Button variant="secondary" disabled={accountLoading} onClick={() => setAuthOpen(true)}><UserRound />{accountLoading ? "Aguarde…" : "Entrar / Cadastrar"}</Button>}
           </div>
         </header>
@@ -295,6 +297,7 @@ function Index() {
         </div>
       </section>
 
+      <WellnessFeatures />
       <footer className="bg-cream py-10 text-center text-sm text-muted-foreground">FitNow · Planeje melhor, compre mais rápido.</footer>
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       <Dialog open={profileOpen && !!user} onOpenChange={setProfileOpen}><DialogContent className="w-[calc(100%-2rem)] rounded-lg bg-cream"><DialogTitle className="font-display text-2xl">Meu perfil</DialogTitle><DialogDescription>Sua conta FitNow</DialogDescription>{profile.isPending ? <p>Carregando…</p> : profile.isError ? <p role="alert">Não foi possível carregar seu perfil.</p> : <dl className="grid gap-4"><div><dt className="text-sm text-muted-foreground">Nome</dt><dd className="break-words font-semibold">{profile.data?.full_name || "Não informado"}</dd></div><div><dt className="text-sm text-muted-foreground">E-mail</dt><dd className="break-all">{profile.data?.email || user?.email}</dd></div></dl>}<Button variant="outline" disabled={signingOut || saving} onClick={logout}><LogOut />Sair da conta</Button></DialogContent></Dialog>
