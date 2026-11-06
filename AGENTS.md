@@ -12,3 +12,4 @@
 - The public home keeps planning choices available; protected server functions require Supabase authentication before generating, saving, or reading menus, so private data is never available anonymously.
 - AccountProvider owns the single auth subscription; start.ts attaches session bearer tokens to server functions, so session transitions and private queries stay consistent.
 - Generate menus on the server and assign user_id from verified context, never caller input; store full recipe and shopping-list snapshots with restrictions and categories in preferences to reopen past plans.
+- Keep wellness UI isolated in a browser-only interaction component with local state; demonstration contact and exercise suggestions must not change account or menu persistence.
